@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FAF8F0">
+  <title>LMS PAI &amp; Fiqih</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="view-login" class="view login" hidden>
+  <svg class="arabesque" viewBox="0 0 200 200" aria-hidden="true"><g fill="none" stroke="#087A55" stroke-width="1.2"><polygon points="100,10 122,60 178,60 133,93 150,148 100,115 50,148 67,93 22,60 78,60"/><polygon points="100,30 150,60 150,120 100,150 50,120 50,60"/><circle cx="100" cy="90" r="70"/></g></svg>
+
+  <div class="login-wrap">
+    <div class="login-logo"><img data-brand-logo alt="Logo lembaga"></div>
+    <span class="badge-soft"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5.5C5 4.5 8 4.5 12 6.5c4-2 7-2 9-1v13c-2-1-5-1-9 1-4-2-7-2-9-1z"/><path d="M12 6.5v13"/></svg>Portal Belajar Siswa Mandiri</span>
+    <h1 class="login-title" data-brand-app>LMS PAI &amp; Fiqih</h1>
+    <p class="login-sub" data-brand-lembaga>SMP Islam Tarbiyatul Huda</p>
+
+    <blockquote class="callout">
+      <span class="callout-mark">99</span>
+      <span><em>"Menuntut ilmu itu wajib atas setiap muslim."</em><small>— HR. Ibnu Majah</small></span>
+    </blockquote>
+
+    <form id="login-form" class="card login-card" autocomplete="on" novalidate>
+      <div class="login-card-head">
+        <h2><span class="bar"></span>Masuk Akun</h2>
+        <span class="chip-ta" id="chip-ta" hidden></span>
+      </div>
+
+      <label class="field">
+        <span class="field-label">NISN / Nama Pengguna</span>
+        <input id="in-user" name="username" type="text" inputmode="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Contoh: 0089271625" required>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Kata Sandi</span>
+        <span class="pw">
+          <input id="in-pass" name="password" type="password" autocomplete="current-password" placeholder="Masukkan kata sandi Anda" required>
+          <button type="button" class="pw-toggle" id="pw-toggle" aria-label="Tampilkan kata sandi">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </span>
+      </label>
+
+      <p id="login-error" class="form-error" role="alert" hidden></p>
+
+      <div class="info-box">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+        <div><strong>Akses Terkelola</strong><br>Akun dan kata sandi dikelola oleh Admin Sekolah / Wali Kelas. Hubungi staf Tata Usaha (TU) jika lupa kata sandi.</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block" id="login-btn">Masuk ke Pembelajaran</button>
+    </form>
+
+    <p class="login-foot">Versi 1.0 — Terintegrasi Google Apps Script &amp; Sheets<br><span data-brand-copy></span></p>
+  </div>
+</section>
+
+<!-- ============ SHELL (SETELAH LOGIN) ============ -->
+<section id="view-shell" class="view shell" hidden>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><img data-brand-logo alt=""><div><strong data-brand-lembaga-short>Tarbiyatul Huda</strong><small data-brand-app>LMS PAI &amp; Fiqih</small></div></div>
+    <nav id="side-nav" aria-label="Menu utama"></nav>
+  </aside>
+
+  <header class="topbar">
+    <div class="brand brand-mobile"><img data-brand-logo alt=""><div><strong data-brand-app>LMS PAI &amp; Fiqih</strong><small data-brand-lembaga>SMP Islam Tarbiyatul Huda</small></div></div>
+    <div class="topbar-user"><span id="who-name"></span><small id="who-role"></small></div>
+  </header>
+
+  <main id="content" class="content" tabindex="-1"></main>
+
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Menu bawah"></nav>
+</section>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="boot" class="boot"><span class="spinner"></span></div>
+
+<script src="app.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
