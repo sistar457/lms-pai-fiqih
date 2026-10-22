@@ -17,12 +17,14 @@ const ROLE_LABEL = { admin: 'Administrator', guru: 'Guru', siswa: 'Siswa' };
 const ICONS = {
   home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
-  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  book: '<path d="M3 5.5C5 4.5 8 4.5 12 6.5c4-2 7-2 9-1v13c-2-1-5-1-9 1-4-2-7-2-9-1z"/><path d="M12 6.5v13"/>',
+  task: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 9l2 2 4-4M8 16h8"/>'
 };
 const NAV = {
   admin: [['beranda', 'Beranda', 'home'], ['akun', 'Akun', 'users'], ['kelas', 'Kelas', 'school'], ['akademik', 'Akademik', 'calendar'], ['log', 'Log', 'log'], ['pengaturan', 'Pengaturan', 'settings'], ['profil', 'Profil', 'user']],
-  guru:  [['beranda', 'Beranda', 'home'], ['profil', 'Profil', 'user']],
-  siswa: [['beranda', 'Beranda', 'home'], ['profil', 'Profil', 'user']]
+  guru:  [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['profil', 'Profil', 'user']],
+  siswa: [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['profil', 'Profil', 'user']]
 };
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -155,7 +157,8 @@ function route() {
   const allowed = (NAV[me.role] || []).map(n => n[0]);
   if (allowed.indexOf(id) < 0) id = 'beranda';
   $$('.nav-item').forEach(a => a.classList.toggle('active', a.dataset.route === id));
-  const pages = Object.assign({ beranda: pageBeranda, pengaturan: pagePengaturan, profil: pageProfil }, window.ADMIN_PAGES || {});
+  const byRole = { admin: window.ADMIN_PAGES, guru: window.GURU_PAGES, siswa: window.SISWA_PAGES }[me.role] || {};
+  const pages = Object.assign({ beranda: pageBeranda, pengaturan: pagePengaturan, profil: pageProfil }, byRole);
   pages[id](param);
   $('#content').focus({ preventScroll: true });
   window.scrollTo(0, 0);
@@ -166,6 +169,8 @@ function route() {
 // ============================================================
 function pageBeranda() {
   if (me.role === 'admin' && window.adminBeranda) return window.adminBeranda();
+  if (me.role === 'guru' && window.guruBeranda) return window.guruBeranda();
+  if (me.role === 'siswa' && window.siswaBeranda) return window.siswaBeranda();
   const first = esc(me.nama.split(' ')[0]);
   const note = {
     admin: 'Pengelolaan akun, tahun ajaran, dan kelas akan tersedia pada fase berikutnya. Saat ini Anda dapat mengatur nama lembaga dan logo di menu Pengaturan.',
