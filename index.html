@@ -8,7 +8,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/style.css" onerror="bootFail('Berkas style.css tidak ditemukan di server.')">
+<script>
+  // Diagnosa: tampilkan pesan jelas jika berkas gagal dimuat atau ada galat JavaScript
+  function bootFail(msg) {
+    var b = document.getElementById('boot-msg');
+    if (b) { b.style.display = 'block'; b.textContent = msg; }
+  }
+  window.addEventListener('error', function (e) {
+    if (e.target && (e.target.src || e.target.href)) return;
+    bootFail('Galat aplikasi: ' + (e.message || 'tidak diketahui') + ' (' + String(e.filename || '').split('/').pop() + ':' + e.lineno + ')');
+  });
+</script>
+
 </head>
 <body>
 
@@ -80,8 +92,10 @@
 </section>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<div id="boot" class="boot"><span class="spinner"></span></div>
+<div id="boot" class="boot"><span class="spinner"></span><p id="boot-msg" style="display:none;max-width:90vw;margin:12px;color:#991B1B;font:500 14px/22px sans-serif;text-align:center"></p></div>
+<noscript><p style="padding:16px">Aplikasi memerlukan JavaScript. Aktifkan JavaScript pada browser Anda.</p></noscript>
 
-<script src="app.js"></script>
+<script src="js/app.js" onerror="bootFail('Berkas app.js tidak ditemukan di server.')"></script>
+<script src="js/admin.js" onerror="bootFail('Berkas admin.js tidak ditemukan di server.')"></script>
 </body>
 </html>
