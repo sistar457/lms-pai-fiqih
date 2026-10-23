@@ -3,8 +3,7 @@
 // Login, sesi, shell per peran, Pengaturan Lembaga (admin)
 // ============================================================
 
-// ⚠️ GANTI dengan URL Web App (/exec) hasil deploy Google Apps Script
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzruX6ZaF1GsRyI9ueJobow1krH1LiWmzZUTRd3VlogV7anPzP8IdAHhuts5hAwbQ86jQ/exec';
+// GAS_URL (URL Web App /exec) didefinisikan di js/config.js agar tidak tertimpa saat app.js diperbarui.
 
 const LS = { token: 'lms_token', user: 'lms_user', cfg: 'lms_cfg' };
 const DEFAULT_CFG = { nama_aplikasi: 'LMS PAI & Fiqih', nama_lembaga: 'SMP Islam Tarbiyatul Huda', tahun_ajaran: '', logo: '' };
@@ -18,6 +17,7 @@ const ICONS = {
   home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
   book: '<path d="M3 5.5C5 4.5 8 4.5 12 6.5c4-2 7-2 9-1v13c-2-1-5-1-9 1-4-2-7-2-9-1z"/><path d="M12 6.5v13"/>',
   task: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 9l2 2 4-4M8 16h8"/>'
 };
@@ -44,7 +44,7 @@ let me = store.get(LS.user);
 // ============================================================
 async function api(action, data) {
   const token = (store.get(LS.token) || '');
-  let res;
+  let res; const t0 = performance.now();
   try {
     const r = await fetch(GAS_URL, {
       method: 'POST',
@@ -52,6 +52,7 @@ async function api(action, data) {
       body: JSON.stringify({ action, token, data: data || {} })
     });
     res = await r.json();
+    if (res && res._ms !== undefined) console.debug('[API] ' + action + ': server ' + res._ms + ' ms, total ' + Math.round(performance.now() - t0) + ' ms');
   } catch (e) {
     return { success: false, message: 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.' };
   }
@@ -132,6 +133,8 @@ function initLogin() {
 // SHELL & ROUTER
 // ============================================================
 function startApp() {
+  // Jaga server tetap "hangat" selama aplikasi terbuka agar permintaan pertama setelah diam tidak lambat
+  if (!window.__keepWarm) window.__keepWarm = setInterval(() => { fetch(GAS_URL + '?action=ping').catch(() => {}); }, 4 * 60 * 1000);
   $('#view-login').hidden = true; $('#view-shell').hidden = false; $('#boot').hidden = true;
   $('#who-name').textContent = me.nama;
   $('#who-role').textContent = ROLE_LABEL[me.role] || me.role;
@@ -146,7 +149,8 @@ function buildNav() {
   const html = items.map(([id, label, ic]) =>
     '<a class="nav-item" href="#/' + id + '" data-route="' + id + '">' + svg(ic) + '<span>' + label + '</span></a>').join('');
   $('#side-nav').innerHTML = html;
-  $('#bottom-nav').innerHTML = html;
+  $('#bottom-nav').innerHTML = '<div class="bn-scroll">' + html + '</div>' +
+    '<button type="button" class="nav-item nav-logout" data-logout>' + svg('logout') + '<span>Keluar</span></button>';
 }
 
 function route() {
@@ -196,7 +200,7 @@ function pageProfil() {
     '<label class="field"><span class="field-label">Ulangi kata sandi baru</span><input id="pw-new2" type="password" autocomplete="new-password" required></label>' +
     '<p id="pw-err" class="form-error" hidden></p>' +
     '<button class="btn btn-primary" type="submit" id="pw-btn">Simpan kata sandi</button></form>' +
-    '<div class="card"><h2>Keluar</h2><p class="hint">Akhiri sesi di perangkat ini.</p><button class="btn btn-danger" id="logout-btn">Keluar dari akun</button></div></div>';
+    '</div>';
 
   $('#pw-form').addEventListener('submit', async ev => {
     ev.preventDefault();
@@ -213,11 +217,22 @@ function pageProfil() {
     toast('Kata sandi berhasil diubah.');
     location.hash = '#/beranda'; route();
   });
-  $('#logout-btn').addEventListener('click', async () => {
-    await api('logout');
-    endSession(); location.hash = ''; showLogin();
-  });
 }
+
+// ============================================================
+// KELUAR (dengan konfirmasi) — dipanggil dari sidebar & bilah bawah
+// ============================================================
+function confirmLogout() {
+  const sedangUjian = typeof window.onbeforeunload === 'function';   // pengerjaan CBT sedang berjalan
+  const keluar = async () => { await api('logout'); window.onbeforeunload = null; endSession(); location.hash = ''; showLogin(); };
+  if (typeof modal !== 'function') { if (confirm('Keluar dari akun?')) keluar(); return; }
+  modal({ title: 'Keluar dari akun?', submit: 'Ya, keluar', cancel: 'Batal',
+    body: '<p>Sesi Anda di perangkat ini akan diakhiri dan Anda perlu masuk kembali dengan kata sandi.</p>' +
+      (sedangUjian ? '<p class="form-error">Anda sedang mengerjakan ujian. Waktu ujian tetap berjalan walaupun Anda keluar.</p>' : ''),
+    onOpen: m => { const b = $('[data-ok]', m.el); if (b) b.className = 'btn btn-danger-solid'; },
+    onSubmit: async () => { await keluar(); } });
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-logout]')) confirmLogout(); });
 
 // ============================================================
 // HALAMAN: PENGATURAN LEMBAGA (ADMIN) — nama & logo
