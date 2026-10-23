@@ -23,8 +23,8 @@ const ICONS = {
 };
 const NAV = {
   admin: [['beranda', 'Beranda', 'home'], ['akun', 'Akun', 'users'], ['kelas', 'Kelas', 'school'], ['akademik', 'Akademik', 'calendar'], ['log', 'Log', 'log'], ['pengaturan', 'Pengaturan', 'settings'], ['profil', 'Profil', 'user']],
-  guru:  [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['profil', 'Profil', 'user']],
-  siswa: [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['profil', 'Profil', 'user']]
+  guru:  [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['soal', 'Bank Soal', 'bank'], ['ujian', 'Ujian', 'exam'], ['profil', 'Profil', 'user']],
+  siswa: [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['ujian', 'Ujian', 'exam'], ['profil', 'Profil', 'user']]
 };
 
 const $ = (s, r = document) => r.querySelector(s);
