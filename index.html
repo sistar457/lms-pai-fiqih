@@ -15,6 +15,14 @@
     var b = document.getElementById('boot-msg');
     if (b) { b.style.display = 'block'; b.textContent = msg; }
   }
+  window.addEventListener('unhandledrejection', function (e) {
+    bootFail('Galat aplikasi: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+  // Penjaga: jika layar muat belum hilang setelah 15 detik, tampilkan petunjuk
+  setTimeout(function () {
+    var b = document.getElementById('boot');
+    if (b && !b.hidden && getComputedStyle(b).display !== 'none') bootFail('Aplikasi belum selesai dimuat. Muat ulang dengan Ctrl+Shift+R. Jika berulang, pastikan js/config.js ada dan GAS_URL-nya benar, lalu cek koneksi internet.');
+  }, 15000);
   window.addEventListener('error', function (e) {
     if (e.target && (e.target.src || e.target.href)) return;
     bootFail('Galat aplikasi: ' + (e.message || 'tidak diketahui') + ' (' + String(e.filename || '').split('/').pop() + ':' + e.lineno + ')');
@@ -79,6 +87,7 @@
   <aside class="sidebar" id="sidebar">
     <div class="brand"><img data-brand-logo alt=""><div><strong data-brand-lembaga-short>Tarbiyatul Huda</strong><small data-brand-app>LMS PAI &amp; Fiqih</small></div></div>
     <nav id="side-nav" aria-label="Menu utama"></nav>
+    <button type="button" class="nav-item nav-logout" data-logout><svg class="ic" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg><span>Keluar</span></button>
   </aside>
 
   <header class="topbar">
@@ -95,6 +104,7 @@
 <div id="boot" class="boot"><span class="spinner"></span><p id="boot-msg" style="display:none;max-width:90vw;margin:12px;color:#991B1B;font:500 14px/22px sans-serif;text-align:center"></p></div>
 <noscript><p style="padding:16px">Aplikasi memerlukan JavaScript. Aktifkan JavaScript pada browser Anda.</p></noscript>
 
+<script src="js/config.js" onerror="bootFail('Berkas config.js tidak ditemukan. Buat js/config.js berisi GAS_URL.')"></script>
 <script src="js/app.js" onerror="bootFail('Berkas app.js tidak ditemukan di server.')"></script>
 <script src="js/admin.js" onerror="bootFail('Berkas admin.js tidak ditemukan di server.')"></script>
 <script src="js/belajar.js" onerror="bootFail('Berkas belajar.js tidak ditemukan di server.')"></script>

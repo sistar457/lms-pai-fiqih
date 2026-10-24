@@ -42,20 +42,22 @@ let me = store.get(LS.user);
 // ============================================================
 // API
 // ============================================================
-async function api(action, data) {
+async function api(action, data, timeoutMs) {
   const token = (store.get(LS.token) || '');
   let res; const t0 = performance.now();
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), timeoutMs || 60000);   // tidak menunggu selamanya
   try {
     const r = await fetch(GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // menghindari preflight CORS
-      body: JSON.stringify({ action, token, data: data || {} })
+      body: JSON.stringify({ action, token, data: data || {} }),
+      signal: ctl.signal
     });
     res = await r.json();
     if (res && res._ms !== undefined) console.debug('[API] ' + action + ': server ' + res._ms + ' ms, total ' + Math.round(performance.now() - t0) + ' ms');
   } catch (e) {
-    return { success: false, message: 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.' };
-  }
+    return { success: false, message: 'Tidak dapat terhubung ke server' + (ctl.signal.aborted ? ' (waktu habis)' : '') + '. Periksa koneksi internet Anda.' };
+  } finally { clearTimeout(timer); }
   if (res.code === 'AUTH' && action !== 'login') { endSession(); showLogin('Sesi berakhir. Silakan masuk kembali.'); }
   return res;
 }
@@ -331,15 +333,20 @@ function prepareLogo(file) {
 // ============================================================
 window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', async () => {
-  initLogin();
-  applyBranding();                                  // tampilan instan dari cache lokal
-  if (GAS_URL.indexOf('GANTI_') === 0) { showLogin('URL backend belum diisi. Edit GAS_URL di app.js.'); return; }
-  if (store.get(LS.token) && me) {
-    const res = await api('me');                    // validasi sesi di server
-    if (res.success) { me = res.data.user; store.set(LS.user, me); startApp(); fetchPublicConfig(); return; }
-    if (res.code !== 'AUTH') { startApp(); return; } // gangguan jaringan: tetap tampilkan aplikasi
-  } else {
-    showLogin();
+  try {
+    initLogin();
+    applyBranding();                                // tampilan instan dari cache lokal
+    if (typeof GAS_URL === 'undefined') { bootFail('Berkas js/config.js belum ada atau isinya tidak valid. Isinya harus: const GAS_URL = \'URL-/exec-Anda\';'); return; }
+    if (GAS_URL.indexOf('GANTI_') === 0) { showLogin('URL backend belum diisi. Isi GAS_URL di js/config.js.'); return; }
+    if (store.get(LS.token) && me) {
+      const res = await api('me', {}, 12000);       // validasi sesi di server (maks. 12 detik)
+      if (res.success) { me = res.data.user; store.set(LS.user, me); startApp(); fetchPublicConfig(); return; }
+      if (res.code !== 'AUTH') { startApp(); return; } // gangguan jaringan: tetap tampilkan aplikasi
+    } else {
+      showLogin();
+    }
+    fetchPublicConfig();
+  } catch (e) {
+    bootFail('Galat saat memulai aplikasi: ' + (e && e.message ? e.message : e));
   }
-  fetchPublicConfig();
 });
