@@ -42,25 +42,134 @@ let me = store.get(LS.user);
 // ============================================================
 // API
 // ============================================================
-async function api(action, data, timeoutMs) {
+// >>> LAPISAN API: cache baca (stale-while-revalidate), percobaan ulang, prefetch, pengukuran
+const Perf = {
+  rows: [],
+  add(action, total, server) { this.rows.push({ action, total, server: server == null ? null : server, net: server == null ? null : total - server }); if (this.rows.length > 200) this.rows.shift(); },
+  table() { console.table(this.rows.slice(-30)); }            // ketik Perf.table() di Console untuk melihat waktu server vs jaringan
+};
+window.Perf = Perf;
+
+// Aksi BACA yang disimpan di perangkat (nilai = lama dianggap segar, ms). Aksi lain: baca tanpa cache, atau tulis.
+const READ_CACHE = { admDashboard: 45e3, admListAkun: 45e3, admListKelas: 45e3, admGetKelas: 45e3, admListAkademik: 45e3,
+  gruMapelSaya: 45e3, gruGetMapel: 45e3, gruListSoal: 45e3, gruListTugas: 45e3, gruListUjian: 30e3,
+  sisMapelSaya: 45e3, sisGetMapel: 45e3, sisTugasSaya: 30e3, sisGetTugas: 30e3, sisListUjian: 15e3 };
+// Aksi yang bukan penulisan data (tidak membuang cache): baca tanpa cache, unduh, simpan otomatis ujian, dll.
+const NON_WRITE = /^(me|getFile|batch|logout|getSettings|admListLog|admSearchSiswaBebas|gruPengumpulan|gruHasilUjian|gruAttempt|sisHasilUjian|sisSimpanJawaban)$/;
+const RC_MAX_AGE = 10 * 60 * 1000;                              // cache lebih tua dari ini tidak dipakai lagi
+const rcMem = new Map(), rcBusy = new Set();
+
+function stable(o) {
+  if (o === null || typeof o !== 'object') return JSON.stringify(o);
+  if (Array.isArray(o)) return '[' + o.map(stable).join(',') + ']';
+  return '{' + Object.keys(o).sort().map(k => JSON.stringify(k) + ':' + stable(o[k])).join(',') + '}';
+}
+const copy = x => JSON.parse(JSON.stringify(x));
+const rcKey = (action, data) => (me ? me.id : '-') + '|' + action + '|' + stable(data || {});   // terpisah per pengguna
+function rcGet(k) {
+  let v = rcMem.get(k);
+  if (!v) { try { const t = sessionStorage.getItem('rc:' + k); if (t) { v = JSON.parse(t); rcMem.set(k, v); } } catch (e) {} }
+  return v || null;
+}
+function rcPut(k, res) {
+  const v = { t: Date.now(), res: res }; rcMem.set(k, v);
+  try { sessionStorage.setItem('rc:' + k, JSON.stringify(v)); } catch (e) {}
+}
+function rcClear() {
+  rcMem.clear();
+  try { Object.keys(sessionStorage).filter(x => x.indexOf('rc:') === 0).forEach(x => sessionStorage.removeItem(x)); } catch (e) {}
+}
+function waitOnline(ms) {
+  return new Promise(r => {
+    if (navigator.onLine !== false) return r();
+    const t = setTimeout(done, ms); function done() { clearTimeout(t); removeEventListener('online', done); r(); } addEventListener('online', done);
+  });
+}
+
+// Satu kali panggilan jaringan (dengan batas waktu)
+async function apiNet(action, data, timeoutMs) {
   const token = (store.get(LS.token) || '');
   let res; const t0 = performance.now();
-  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), timeoutMs || 60000);   // tidak menunggu selamanya
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), timeoutMs || 90000);
   try {
     const r = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // menghindari preflight CORS
-      body: JSON.stringify({ action, token, data: data || {} }),
-      signal: ctl.signal
+      method: 'POST', redirect: 'follow', cache: 'no-store', signal: ctl.signal,
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },            // menghindari preflight CORS
+      body: JSON.stringify({ action, token, data: data || {} })
     });
     res = await r.json();
-    if (res && res._ms !== undefined) console.debug('[API] ' + action + ': server ' + res._ms + ' ms, total ' + Math.round(performance.now() - t0) + ' ms');
+    const total = Math.round(performance.now() - t0);
+    Perf.add(action, total, res && res._ms);
+    if (res && res._ms !== undefined) console.debug('[API] ' + action + ': server ' + res._ms + ' ms, total ' + total + ' ms');
   } catch (e) {
-    return { success: false, message: 'Tidak dapat terhubung ke server' + (ctl.signal.aborted ? ' (waktu habis)' : '') + '. Periksa koneksi internet Anda.' };
+    return { success: false, network: true, message: 'Tidak dapat terhubung ke server' + (ctl.signal.aborted ? ' (waktu habis)' : '') + '. Periksa koneksi internet Anda.' };
   } finally { clearTimeout(timer); }
   if (res.code === 'AUTH' && action !== 'login') { endSession(); showLogin('Sesi berakhir. Silakan masuk kembali.'); }
   return res;
 }
+
+// Aksi baca aman diulang: percobaan pertama lebih pendek agar cepat pulih dari "cold start"
+async function apiRead(action, data, timeoutMs) {
+  let r;
+  for (let i = 0; i < 3; i++) {
+    if (i) { await new Promise(x => setTimeout(x, 1200 * i)); if (navigator.onLine === false) await waitOnline(15000); }
+    r = await apiNet(action, data, timeoutMs || (i ? 40000 : 25000));
+    if (r.success || !r.network) return r;
+  }
+  return r;
+}
+
+async function api(action, data, timeoutMs) {
+  const ttl = READ_CACHE[action];
+  if (ttl === undefined) {                                                // tulis, atau baca yang tidak di-cache
+    const r = await apiNet(action, data, timeoutMs);
+    if (!NON_WRITE.test(action)) rcClear();                               // setelah menulis, semua cache baca dianggap usang
+    return r;
+  }
+  const key = rcKey(action, data), hit = rcGet(key), age = hit ? Date.now() - hit.t : Infinity;
+  if (hit && age < ttl) return copy(hit.res);                             // masih segar: tanpa server, tanpa spinner
+  if (hit && age < RC_MAX_AGE) { revalidate(key, action, data, timeoutMs, hit); return copy(hit.res); }   // tampil dulu, segarkan di latar
+  const r = await apiRead(action, data, timeoutMs);
+  if (r.success) rcPut(key, r);
+  return r;
+}
+
+async function revalidate(key, action, data, timeoutMs, old) {
+  if (rcBusy.has(key)) return;
+  rcBusy.add(key); const hashAt = location.hash;
+  try {
+    const r = await apiRead(action, data, timeoutMs);
+    if (r.success) { rcPut(key, r); if (stable(r.data) !== stable(old.res.data) && location.hash === hashAt) refreshView(); }
+  } finally { rcBusy.delete(key); }
+}
+// Gambar ulang halaman hanya bila data benar-benar berubah, dan tidak saat pengguna sedang mengetik / ada jendela terbuka / ujian berjalan
+function refreshView() {
+  const ae = document.activeElement, content = $('#content');
+  if (document.querySelector('.modal-ov') || typeof window.onbeforeunload === 'function') return;
+  if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && content && content.contains(ae)) return;
+  route();
+}
+
+// Prefetch menu yang sering dibuka dalam SATU panggilan, saat perangkat idle
+const PREFETCH = {
+  admin: [['admDashboard', {}], ['admListKelas', {}], ['admListAkademik', {}], ['admListAkun', { tipe: 'siswa', q: '', status: '', page: 1 }]],
+  guru:  [['gruMapelSaya', {}], ['gruListTugas', {}], ['gruListSoal', { mapel_id: '', jenis: '', q: '', page: 1 }], ['gruListUjian', {}]],
+  siswa: [['sisMapelSaya', {}], ['sisTugasSaya', {}], ['sisListUjian', {}]]
+};
+async function prefetch() {
+  if (!me) return;
+  const calls = (PREFETCH[me.role] || []).filter(([a, d]) => { const h = rcGet(rcKey(a, d)); return !h || Date.now() - h.t >= READ_CACHE[a]; });
+  if (!calls.length) return;
+  const r = await apiNet('batch', { calls: calls.map(([action, data]) => ({ action, data })) }, 60000);
+  if (r.success) r.data.results.forEach((x, i) => { if (x.res && x.res.success) rcPut(rcKey(calls[i][0], calls[i][1]), x.res); });
+}
+function schedulePrefetch() { setTimeout(() => (window.requestIdleCallback || setTimeout)(() => prefetch().catch(() => {})), 1200 + Math.random() * 3000); }
+function warmUp() { try { fetch(GAS_URL + '?action=ping', { cache: 'no-store' }).catch(() => {}); } catch (e) {} }
+function tokenExpired(t) {
+  try { const b = String(t).split('.')[0].replace(/-/g, '+').replace(/_/g, '/'); const p = JSON.parse(atob(b + '='.repeat((4 - b.length % 4) % 4))); return !p.exp || p.exp < Date.now(); }
+  catch (e) { return true; }
+}
+// <<< LAPISAN API
 
 async function fetchPublicConfig() {
   try {
@@ -109,7 +218,7 @@ function showLogin(msg) {
   err.hidden = !msg; err.textContent = msg || '';
   applyBranding();
 }
-function endSession() { store.del(LS.token); store.del(LS.user); me = null; }
+function endSession() { rcClear(); store.del(LS.token); store.del(LS.user); me = null; }
 
 function initLogin() {
   $('#pw-toggle').addEventListener('click', () => {
@@ -135,8 +244,12 @@ function initLogin() {
 // SHELL & ROUTER
 // ============================================================
 function startApp() {
-  // Jaga server tetap "hangat" selama aplikasi terbuka agar permintaan pertama setelah diam tidak lambat
-  if (!window.__keepWarm) window.__keepWarm = setInterval(() => { fetch(GAS_URL + '?action=ping').catch(() => {}); }, 4 * 60 * 1000);
+  // Pemanasan server saat aplikasi dibuka dan saat kembali dari latar belakang > 2 menit (bukan polling terus-menerus)
+  warmUp();
+  if (!window.__warmInit) {
+    window.__warmInit = true;
+    document.addEventListener('visibilitychange', () => { if (document.hidden) window.__hiddenAt = Date.now(); else if (window.__hiddenAt && Date.now() - window.__hiddenAt > 120000) warmUp(); });
+  }
   $('#view-login').hidden = true; $('#view-shell').hidden = false; $('#boot').hidden = true;
   $('#who-name').textContent = me.nama;
   $('#who-role').textContent = ROLE_LABEL[me.role] || me.role;
@@ -144,6 +257,7 @@ function startApp() {
   applyBranding();
   if (!location.hash) location.hash = '#/beranda';
   route();
+  schedulePrefetch();
 }
 
 function buildNav() {
@@ -165,6 +279,11 @@ function route() {
   $$('.nav-item').forEach(a => a.classList.toggle('active', a.dataset.route === id));
   const byRole = { admin: window.ADMIN_PAGES, guru: window.GURU_PAGES, siswa: window.SISWA_PAGES }[me.role] || {};
   const pages = Object.assign({ beranda: pageBeranda, pengaturan: pagePengaturan, profil: pageProfil }, byRole);
+  // Ganti area konten dengan elemen baru setiap pindah halaman:
+  //  1) pendengar klik halaman sebelumnya tidak ikut aktif di halaman baru
+  //  2) respons lambat dari halaman sebelumnya hanya menulis ke elemen lama yang sudah terlepas (tidak menimpa halaman baru)
+  const lama = $('#content'), baru = lama.cloneNode(false);
+  lama.replaceWith(baru);
   pages[id](param);
   $('#content').focus({ preventScroll: true });
   window.scrollTo(0, 0);
@@ -338,13 +457,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     applyBranding();                                // tampilan instan dari cache lokal
     if (typeof GAS_URL === 'undefined') { bootFail('Berkas js/config.js belum ada atau isinya tidak valid. Isinya harus: const GAS_URL = \'URL-/exec-Anda\';'); return; }
     if (GAS_URL.indexOf('GANTI_') === 0) { showLogin('URL backend belum diisi. Isi GAS_URL di js/config.js.'); return; }
-    if (store.get(LS.token) && me) {
-      const res = await api('me', {}, 12000);       // validasi sesi di server (maks. 12 detik)
-      if (res.success) { me = res.data.user; store.set(LS.user, me); startApp(); fetchPublicConfig(); return; }
-      if (res.code !== 'AUTH') { startApp(); return; } // gangguan jaringan: tetap tampilkan aplikasi
-    } else {
-      showLogin();
+    const tk = store.get(LS.token);
+    if (tk && me && !tokenExpired(tk)) {            // sesi lokal masih berlaku: tampilkan aplikasi seketika
+      startApp(); fetchPublicConfig(); return;       // server tetap memvalidasi di setiap panggilan (AUTH → masuk ulang)
     }
+    if (tk) endSession();
+    showLogin();
     fetchPublicConfig();
   } catch (e) {
     bootFail('Galat saat memulai aplikasi: ' + (e && e.message ? e.message : e));
