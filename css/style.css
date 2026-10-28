@@ -251,3 +251,13 @@ details { margin: 8px 0; } summary { cursor: pointer; font-weight: 600; }
 .tbl small { display: block; color: var(--text-2); font-size: 11px; font-weight: 500; line-height: 16px; }
 .bobot-grid { display: grid; gap: 0 12px; grid-template-columns: repeat(2, 1fr); margin-top: 8px; }
 @media (min-width: 640px) { .bobot-grid { grid-template-columns: repeat(5, 1fr); } }
+
+/* ============ FASE 5A: PRESENSI & REMEDIAL ============ */
+.seg { display: inline-flex; gap: 4px; }
+.seg button { width: 42px; height: 42px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); font: 700 14px var(--font); color: var(--text-2); cursor: pointer; }
+.seg .seg-hadir.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.seg .seg-izin.on { background: #3B82F6; border-color: #3B82F6; color: #fff; }
+.seg .seg-sakit.on { background: var(--warning); border-color: var(--warning); color: var(--text); }
+.seg .seg-alpa.on { background: var(--error); border-color: var(--error); color: #fff; }
+.bar { height: 8px; margin-top: 8px; background: var(--muted-bg); border-radius: 9999px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--primary); border-radius: 9999px; }

@@ -6,9 +6,15 @@
 async function siswaNilai() {
   const c = $('#content');
   c.innerHTML = '<div class="page-head"><h1>Nilai Saya</h1></div>' + SPIN;
-  const r = await api('sisNilaiSaya');
+  const [r, rem] = await Promise.all([api('sisNilaiSaya'), api('sisRemedial')]);
   if (!r.success) { c.innerHTML = errBox(r.message); return; }
   const { items, rata } = r.data;
+  const RL = { berjalan: 'Berjalan', selesai: 'Selesai', batal: 'Dibatalkan' };
+  const remItems = rem.success ? rem.data.items : [];
+  const remedialHtml = remItems.length ? '<div class="card"><h2>Remedial</h2><div class="list">' + remItems.map(x =>
+    '<div class="list-item"><div class="li-main"><strong>' + esc(x.mapel) + ' · Semester ' + esc(x.semester) + '</strong><span class="li-meta" dir="auto">' + esc(x.aktivitas) + '</span>' +
+    '<span class="li-meta">Nilai awal ' + fmtN(x.asal) + (x.nilai !== null ? ' → hasil remedial ' + fmtN(x.nilai) : '') + (x.catatan ? ' · ' + esc(x.catatan) : '') + '</span></div>' +
+    chip(RL[x.status] || x.status, x.status === 'selesai' ? 'ok' : x.status === 'batal' ? 'err' : 'soft') + '</div>').join('') + '</div></div>' : '';
   c.innerHTML = '<div class="page-head"><h1>Nilai Saya</h1><p>Nilai per mata pelajaran semester ini.</p></div><div class="stack">' +
     (items.length ? '<div class="stats"><div class="stat"><strong>' + fmtN(rata) + '</strong><span>Rata-rata nilai akhir</span></div><div class="stat"><strong>' + items.filter(i => i.tuntas === true).length + '/' + items.length + '</strong><span>Mapel tuntas</span></div></div>' +
       items.map(i =>
@@ -21,7 +27,7 @@ async function siswaNilai() {
         (i.sementara && i.akhir !== null ? '<p class="hint" style="margin-top:10px">Nilai ini masih sementara karena ada komponen yang belum dinilai.</p>' : '') +
         (i.rincian.length ? '<details style="margin-top:10px"><summary>Rincian nilai (' + i.rincian.length + ')</summary><div class="list">' +
           i.rincian.map(x => '<div class="list-item"><div class="li-main"><strong dir="auto">' + esc(x.nama) + '</strong><span class="li-meta">' + esc(KOMP_LABEL[x.komponen] || x.komponen) + '</span></div><strong>' + fmtN(x.nilai) + '</strong></div>').join('') + '</div></details>' : '<p class="hint" style="margin-top:10px">Belum ada nilai yang masuk.</p>') + '</div>').join('')
-      : '<div class="empty">Anda belum terdaftar di kelas mana pun. Hubungi admin sekolah.</div>') + '</div>';
+      : '<div class="empty">Anda belum terdaftar di kelas mana pun. Hubungi admin sekolah.</div>') + remedialHtml + '</div>';
 }
 
 Object.assign(window.SISWA_PAGES, { nilai: siswaNilai });

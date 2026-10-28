@@ -27,10 +27,10 @@ async function guruNilai() {
   c.innerHTML = '<div class="page-head"><h1>Nilai</h1><p>Rekap nilai kelas dan penilaian praktik.</p></div>' +
     '<div class="toolbar"><select id="nl-mk" class="select" aria-label="Kelas dan mata pelajaran">' +
     opts(list.map(x => [x.mk_id, x.mapel + ' — Kelas ' + x.kelas + ' (' + x.semester + (x.aktif ? '' : ', lalu') + ')']), mkId) + '</select></div>' +
-    '<div class="tabs" id="nl-tabs"><button class="active" data-t="rekap">Rekap nilai</button><button data-t="praktik">Penilaian praktik</button></div><div id="nl-body"></div>';
+    '<div class="tabs" id="nl-tabs"><button class="active" data-t="rekap">Rekap nilai</button><button data-t="praktik">Penilaian praktik</button><button data-t="remedial">Remedial</button></div><div id="nl-body"></div>';
   $('#nl-mk').addEventListener('change', e => { mkId = e.target.value; label = ''; try { sessionStorage.setItem('nilai_mk', mkId); } catch (x) {} draw(); });
   $('#nl-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; tab = b.dataset.t; $$('#nl-tabs button').forEach(x => x.classList.toggle('active', x === b)); draw(); });
-  const draw = () => (tab === 'rekap' ? tabRekap(mkId) : tabPraktik(mkId, label, l => { label = l; }));
+  const draw = () => (tab === 'rekap' ? tabRekap(mkId) : tab === 'praktik' ? tabPraktik(mkId, label, l => { label = l; }) : tabRemedial(mkId));
   draw();
 }
 
@@ -113,6 +113,51 @@ async function tabPraktikBaru(mkId, label, setLabel) {
     const s = await api('gruPraktikSimpan', { mk_id: mkId, label: label, rows: $$('[data-pk]').map(i => ({ siswa_id: i.dataset.pk, nilai: i.value })) });
     setBusy(b, false); toast(s.message || 'Selesai.', !s.success); if (s.success) tabPraktik(mkId, label, setLabel);
   });
+}
+
+// ---------- Remedial ----------
+const REM_LABEL = { berjalan: 'Berjalan', selesai: 'Selesai', batal: 'Dibatalkan' };
+async function tabRemedial(mkId) {
+  const box = $('#nl-body');
+  box.innerHTML = SPIN;
+  const r = await api('gruRemedialList', { mk_id: mkId });
+  if (!r.success) { box.innerHTML = errBox(r.message); return; }
+  if ($('#nl-mk') && $('#nl-mk').value !== mkId) return;
+  const d = r.data, lain = d.siswa.filter(x => !d.kandidat.some(k => k.siswa_id === x.siswa_id));
+  const cek = (x, on) => '<label class="pick-item"><input type="checkbox" data-sid="' + esc(x.siswa_id) + '"' + (on ? ' checked' : '') + (x.sedang_remedial ? ' disabled' : '') + '><span><strong>' + esc(x.nama) + '</strong><br><small class="li-meta">Nilai akhir ' + fmtN(x.akhir) + (x.sedang_remedial ? ' · remedial sedang berjalan' : '') + '</small></span></label>';
+  box.innerHTML = '<div class="card"><h2>Tetapkan remedial</h2><p class="hint">KKM ' + fmtN(d.kkm) + '. Siswa di bawah KKM sudah tercentang; Anda dapat mengubah pilihan.</p>' +
+    '<div class="pick-list" style="max-height:220px">' + (d.kandidat.length ? d.kandidat.map(x => cek(x, !x.sedang_remedial)).join('') : '<div class="empty">Tidak ada siswa di bawah KKM.</div>') + '</div>' +
+    (lain.length ? '<details><summary>Pilih siswa lain (' + lain.length + ')</summary><div class="pick-list" style="max-height:200px">' + lain.map(x => cek(x, false)).join('') + '</div></details>' : '') +
+    '<label class="field"><span class="field-label">Aktivitas remedial</span><textarea id="rm-akt" rows="3" maxlength="1000" placeholder="Contoh: Ulangi praktik wudhu dan kerjakan ulang tugas Bab 2 sebelum Jumat."></textarea></label>' +
+    '<p id="rm-err" class="form-error" hidden></p><button class="btn btn-primary" id="rm-buat">Tetapkan remedial</button></div>' +
+    '<div class="card" style="margin-top:16px"><h2>Daftar remedial</h2>' + (d.items.length ? '<div class="list">' + d.items.map(x =>
+      '<div class="list-item"><div class="li-main"><strong>' + esc(x.nama) + '</strong><span class="li-meta" dir="auto">' + esc(x.aktivitas) + '</span>' +
+      '<span class="li-meta">Nilai awal ' + fmtN(x.asal) + (x.nilai !== null ? ' → hasil remedial ' + fmtN(x.nilai) : '') + (x.catatan ? ' · ' + esc(x.catatan) : '') + '</span></div>' +
+      '<div class="li-actions">' + chip(REM_LABEL[x.status] || x.status, x.status === 'selesai' ? 'ok' : x.status === 'batal' ? 'err' : 'soft') + '<button class="btn btn-secondary btn-sm" data-rm="' + esc(x.id) + '">Perbarui</button></div></div>').join('') + '</div>' : '<div class="empty">Belum ada remedial.</div>') + '</div>';
+
+  $('#rm-buat').addEventListener('click', async () => {
+    const err = $('#rm-err'), b = $('#rm-buat'); err.hidden = true;
+    const ids = $$('.pick-item input:checked', box).map(i => i.dataset.sid);
+    if (!ids.length) { err.textContent = 'Pilih minimal satu siswa.'; err.hidden = false; return; }
+    setBusy(b, true, 'Menyimpan…');
+    const s = await api('gruRemedialBuat', { mk_id: mkId, siswa_ids: ids, aktivitas: $('#rm-akt').value });
+    setBusy(b, false);
+    if (!s.success) { err.textContent = s.message; err.hidden = false; return; }
+    toast(s.message); tabRemedial(mkId);
+  });
+  box.onclick = e => {
+    const b = e.target.closest('[data-rm]'); if (!b) return;
+    const x = d.items.find(i => i.id === b.dataset.rm);
+    modal({ title: 'Perbarui remedial — ' + x.nama, body:
+      '<label class="field"><span class="field-label">Aktivitas</span><textarea id="ru-akt" rows="3" maxlength="1000">' + esc(x.aktivitas) + '</textarea></label>' +
+      sel('Status', 'ru-st', opts([['berjalan', 'Berjalan'], ['selesai', 'Selesai'], ['batal', 'Dibatalkan']], x.status)) +
+      fld('Nilai hasil remedial (wajib bila selesai)', 'ru-nilai', x.nilai === null ? '' : x.nilai, 'type="number" min="0" max="100" step="0.5" inputmode="decimal"') +
+      '<label class="field"><span class="field-label">Catatan progres</span><textarea id="ru-cat" rows="2" maxlength="500">' + esc(x.catatan) + '</textarea></label>',
+      onSubmit: async () => {
+        const s = await api('gruRemedialUbah', { id: x.id, status: val('ru-st'), nilai: val('ru-nilai'), catatan: val('ru-cat'), aktivitas: val('ru-akt') });
+        if (!s.success) return s.message; toast('Remedial diperbarui.'); tabRemedial(mkId);
+      } });
+  };
 }
 
 Object.assign(window.GURU_PAGES, { nilai: guruNilai });

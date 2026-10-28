@@ -23,8 +23,8 @@ const ICONS = {
 };
 const NAV = {
   admin: [['beranda', 'Beranda', 'home'], ['akun', 'Akun', 'users'], ['kelas', 'Kelas', 'school'], ['akademik', 'Akademik', 'calendar'], ['penilaian', 'Penilaian', 'chart'], ['log', 'Log', 'log'], ['pengaturan', 'Pengaturan', 'settings'], ['profil', 'Profil', 'user']],
-  guru:  [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['soal', 'Bank Soal', 'bank'], ['ujian', 'Ujian', 'exam'], ['nilai', 'Nilai', 'chart'], ['profil', 'Profil', 'user']],
-  siswa: [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['ujian', 'Ujian', 'exam'], ['nilai', 'Nilai', 'star'], ['profil', 'Profil', 'user']]
+  guru:  [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['soal', 'Bank Soal', 'bank'], ['ujian', 'Ujian', 'exam'], ['nilai', 'Nilai', 'chart'], ['presensi', 'Presensi', 'check'], ['profil', 'Profil', 'user']],
+  siswa: [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['ujian', 'Ujian', 'exam'], ['nilai', 'Nilai', 'star'], ['kehadiran', 'Kehadiran', 'check'], ['profil', 'Profil', 'user']]
 };
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -54,9 +54,10 @@ window.Perf = Perf;
 const READ_CACHE = { admDashboard: 45e3, admListAkun: 45e3, admListKelas: 45e3, admGetKelas: 45e3, admListAkademik: 45e3,
   gruMapelSaya: 45e3, gruGetMapel: 45e3, gruListSoal: 45e3, gruListTugas: 45e3, gruListUjian: 30e3,
   sisMapelSaya: 45e3, sisGetMapel: 45e3, sisTugasSaya: 30e3, sisGetTugas: 30e3, sisListUjian: 15e3,
-  admGetPenilaian: 30e3, gruRekap: 30e3, gruPraktik: 30e3, sisNilaiSaya: 30e3 };
+  admGetPenilaian: 30e3, gruRekap: 30e3, gruPraktik: 30e3, sisNilaiSaya: 30e3,
+  gruPresensiRekap: 30e3, gruRemedialList: 30e3, sisKehadiran: 30e3, sisRemedial: 30e3 };
 // Aksi yang bukan penulisan data (tidak membuang cache): baca tanpa cache, unduh, simpan otomatis ujian, dll.
-const NON_WRITE = /^(me|getFile|batch|logout|getSettings|admListLog|admSearchSiswaBebas|gruPengumpulan|gruHasilUjian|gruAttempt|sisHasilUjian|sisSimpanJawaban)$/;
+const NON_WRITE = /^(me|getFile|batch|logout|getSettings|admListLog|admSearchSiswaBebas|gruPengumpulan|gruHasilUjian|gruAttempt|sisHasilUjian|sisSimpanJawaban|gruPresensiSesi)$/;
 const RC_MAX_AGE = 10 * 60 * 1000;                              // cache lebih tua dari ini tidak dipakai lagi
 const rcMem = new Map(), rcBusy = new Set();
 
@@ -155,7 +156,7 @@ function refreshView() {
 const PREFETCH = {
   admin: [['admDashboard', {}], ['admListKelas', {}], ['admListAkademik', {}], ['admListAkun', { tipe: 'siswa', q: '', status: '', page: 1 }]],
   guru:  [['gruMapelSaya', {}], ['gruListTugas', {}], ['gruListSoal', { mapel_id: '', jenis: '', q: '', page: 1 }], ['gruListUjian', {}]],
-  siswa: [['sisMapelSaya', {}], ['sisTugasSaya', {}], ['sisListUjian', {}], ['sisNilaiSaya', {}]]
+  siswa: [['sisMapelSaya', {}], ['sisTugasSaya', {}], ['sisListUjian', {}], ['sisNilaiSaya', {}], ['sisKehadiran', {}]]
 };
 async function prefetch() {
   if (!me) return;
