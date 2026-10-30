@@ -22,9 +22,9 @@ const ICONS = {
   task: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 9l2 2 4-4M8 16h8"/>'
 };
 const NAV = {
-  admin: [['beranda', 'Beranda', 'home'], ['akun', 'Akun', 'users'], ['kelas', 'Kelas', 'school'], ['akademik', 'Akademik', 'calendar'], ['penilaian', 'Penilaian', 'chart'], ['log', 'Log', 'log'], ['pengaturan', 'Pengaturan', 'settings'], ['profil', 'Profil', 'user']],
-  guru:  [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['soal', 'Bank Soal', 'bank'], ['ujian', 'Ujian', 'exam'], ['nilai', 'Nilai', 'chart'], ['presensi', 'Presensi', 'check'], ['profil', 'Profil', 'user']],
-  siswa: [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['ujian', 'Ujian', 'exam'], ['nilai', 'Nilai', 'star'], ['kehadiran', 'Kehadiran', 'check'], ['profil', 'Profil', 'user']]
+  admin: [['beranda', 'Beranda', 'home'], ['akun', 'Akun', 'users'], ['kelas', 'Kelas', 'school'], ['akademik', 'Akademik', 'calendar'], ['penilaian', 'Penilaian', 'chart'], ['program', 'Sertifikat', 'award'], ['forum', 'Forum', 'forum'], ['log', 'Log', 'log'], ['pengaturan', 'Pengaturan', 'settings'], ['profil', 'Profil', 'user']],
+  guru:  [['beranda', 'Beranda', 'home'], ['presensi', 'Presensi', 'check'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['nilai', 'Nilai', 'chart'], ['ujian', 'Ujian', 'exam'], ['soal', 'Bank Soal', 'bank'], ['forum', 'Forum', 'forum'], ['profil', 'Profil', 'user']],
+  siswa: [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['ujian', 'Ujian', 'exam'], ['nilai', 'Nilai', 'star'], ['kehadiran', 'Kehadiran', 'check'], ['forum', 'Forum', 'forum'], ['sertifikat', 'Sertifikat', 'award'], ['profil', 'Profil', 'user']]
 };
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -54,10 +54,11 @@ window.Perf = Perf;
 const READ_CACHE = { admDashboard: 45e3, admListAkun: 45e3, admListKelas: 45e3, admGetKelas: 45e3, admListAkademik: 45e3,
   gruMapelSaya: 45e3, gruGetMapel: 45e3, gruListSoal: 45e3, gruListTugas: 45e3, gruListUjian: 30e3,
   sisMapelSaya: 45e3, sisGetMapel: 45e3, sisTugasSaya: 30e3, sisGetTugas: 30e3, sisListUjian: 15e3,
+  listForum: 15e3, admListProgram: 45e3, admListSertifikat: 45e3, gruProgramManual: 45e3, sisSertifikat: 60e3,
   admGetPenilaian: 30e3, gruRekap: 30e3, gruPraktik: 30e3, sisNilaiSaya: 30e3,
   gruPresensiRekap: 30e3, gruRemedialList: 30e3, sisKehadiran: 30e3, sisRemedial: 30e3 };
 // Aksi yang bukan penulisan data (tidak membuang cache): baca tanpa cache, unduh, simpan otomatis ujian, dll.
-const NON_WRITE = /^(me|getFile|batch|logout|getSettings|admListLog|admSearchSiswaBebas|gruPengumpulan|gruHasilUjian|gruAttempt|sisHasilUjian|sisSimpanJawaban|gruPresensiSesi)$/;
+const NON_WRITE = /^(me|getFile|batch|logout|getSettings|admListLog|admSearchSiswaBebas|gruPengumpulan|gruHasilUjian|gruAttempt|sisHasilUjian|sisSimpanJawaban|gruPresensiSesi|getForum|admEvaluasiProgram)$/;
 const RC_MAX_AGE = 10 * 60 * 1000;                              // cache lebih tua dari ini tidak dipakai lagi
 const rcMem = new Map(), rcBusy = new Set();
 
@@ -264,12 +265,23 @@ function startApp() {
 
 function buildNav() {
   const items = NAV[me.role] || NAV.siswa;
-  const html = items.map(([id, label, ic]) =>
-    '<a class="nav-item" href="#/' + id + '" data-route="' + id + '">' + svg(ic) + '<span>' + label + '</span></a>').join('');
-  $('#side-nav').innerHTML = html;
-  $('#bottom-nav').innerHTML = '<div class="bn-scroll">' + html + '</div>' +
+  const link = ([id, label, ic]) => '<a class="nav-item" href="#/' + id + '" data-route="' + id + '">' + svg(ic) + '<span>' + label + '</span></a>';
+  $('#side-nav').innerHTML = items.map(link).join('');
+  // Di HP: 4 menu utama + "Lainnya" (sisanya) + Keluar, agar bilah bawah tidak perlu digeser
+  const banyak = items.length > 5;
+  window.__navRest = banyak ? items.slice(4) : [];
+  $('#bottom-nav').innerHTML = '<div class="bn-scroll">' + (banyak ? items.slice(0, 4) : items).map(link).join('') +
+    (banyak ? '<button type="button" class="nav-item" id="nav-more" data-more>' + svg('more') + '<span>Lainnya</span></button>' : '') + '</div>' +
     '<button type="button" class="nav-item nav-logout" data-logout>' + svg('logout') + '<span>Keluar</span></button>';
 }
+function bukaLainnya() {
+  const rest = window.__navRest || [];
+  if (typeof modal !== 'function') return;
+  modal({ title: 'Menu lainnya', submit: '', cancel: 'Tutup',
+    body: '<div class="more-grid">' + rest.map(([id, label, ic]) => '<a class="more-item" href="#/' + id + '" data-more-link>' + svg(ic) + '<span>' + label + '</span></a>').join('') + '</div>',
+    onOpen: m => $('.more-grid', m.el).addEventListener('click', e => { if (e.target.closest('[data-more-link]')) m.close(); }) });
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-more]')) bukaLainnya(); });
 
 function route() {
   if (!me) return;
@@ -279,6 +291,7 @@ function route() {
   const allowed = (NAV[me.role] || []).map(n => n[0]);
   if (allowed.indexOf(id) < 0) id = 'beranda';
   $$('.nav-item').forEach(a => a.classList.toggle('active', a.dataset.route === id));
+  const more = $('#nav-more'); if (more) more.classList.toggle('active', (window.__navRest || []).some(n => n[0] === id));
   const byRole = { admin: window.ADMIN_PAGES, guru: window.GURU_PAGES, siswa: window.SISWA_PAGES }[me.role] || {};
   const pages = Object.assign({ beranda: pageBeranda, pengaturan: pagePengaturan, profil: pageProfil }, byRole);
   // Ganti area konten dengan elemen baru setiap pindah halaman:
@@ -459,6 +472,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     applyBranding();                                // tampilan instan dari cache lokal
     if (typeof GAS_URL === 'undefined') { bootFail('Berkas js/config.js belum ada atau isinya tidak valid. Isinya harus: const GAS_URL = \'URL-/exec-Anda\';'); return; }
     if (GAS_URL.indexOf('GANTI_') === 0) { showLogin('URL backend belum diisi. Isi GAS_URL di js/config.js.'); return; }
+    const mv = /^#\/verifikasi\/([A-Za-z0-9-]+)$/.exec(location.hash);          // halaman verifikasi sertifikat (publik, tanpa login)
+    if (mv && typeof tampilVerifikasi === 'function') { await tampilVerifikasi(mv[1]); return; }
     const tk = store.get(LS.token);
     if (tk && me && !tokenExpired(tk)) {            // sesi lokal masih berlaku: tampilkan aplikasi seketika
       startApp(); fetchPublicConfig(); return;       // server tetap memvalidasi di setiap panggilan (AUTH → masuk ulang)

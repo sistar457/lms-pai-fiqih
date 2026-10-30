@@ -27,10 +27,10 @@ async function guruNilai() {
   c.innerHTML = '<div class="page-head"><h1>Nilai</h1><p>Rekap nilai kelas dan penilaian praktik.</p></div>' +
     '<div class="toolbar"><select id="nl-mk" class="select" aria-label="Kelas dan mata pelajaran">' +
     opts(list.map(x => [x.mk_id, x.mapel + ' — Kelas ' + x.kelas + ' (' + x.semester + (x.aktif ? '' : ', lalu') + ')']), mkId) + '</select></div>' +
-    '<div class="tabs" id="nl-tabs"><button class="active" data-t="rekap">Rekap nilai</button><button data-t="praktik">Penilaian praktik</button><button data-t="remedial">Remedial</button></div><div id="nl-body"></div>';
+    '<div class="tabs" id="nl-tabs"><button class="active" data-t="rekap">Rekap nilai</button><button data-t="praktik">Penilaian praktik</button><button data-t="remedial">Remedial</button><button data-t="sertifikat">Sertifikat</button></div><div id="nl-body"></div>';
   $('#nl-mk').addEventListener('change', e => { mkId = e.target.value; label = ''; try { sessionStorage.setItem('nilai_mk', mkId); } catch (x) {} draw(); });
   $('#nl-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; tab = b.dataset.t; $$('#nl-tabs button').forEach(x => x.classList.toggle('active', x === b)); draw(); });
-  const draw = () => (tab === 'rekap' ? tabRekap(mkId) : tab === 'praktik' ? tabPraktik(mkId, label, l => { label = l; }) : tabRemedial(mkId));
+  const draw = () => (tab === 'rekap' ? tabRekap(mkId) : tab === 'praktik' ? tabPraktik(mkId, label, l => { label = l; }) : tab === 'remedial' ? tabRemedial(mkId) : tabSertifikat(mkId));
   draw();
 }
 
