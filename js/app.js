@@ -22,8 +22,8 @@ const ICONS = {
   task: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 9l2 2 4-4M8 16h8"/>'
 };
 const NAV = {
-  admin: [['beranda', 'Beranda', 'home'], ['akun', 'Akun', 'users'], ['kelas', 'Kelas', 'school'], ['akademik', 'Akademik', 'calendar'], ['penilaian', 'Penilaian', 'chart'], ['program', 'Sertifikat', 'award'], ['forum', 'Forum', 'forum'], ['log', 'Log', 'log'], ['pengaturan', 'Pengaturan', 'settings'], ['profil', 'Profil', 'user']],
-  guru:  [['beranda', 'Beranda', 'home'], ['presensi', 'Presensi', 'check'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['nilai', 'Nilai', 'chart'], ['ujian', 'Ujian', 'exam'], ['soal', 'Bank Soal', 'bank'], ['forum', 'Forum', 'forum'], ['profil', 'Profil', 'user']],
+  admin: [['beranda', 'Beranda', 'home'], ['akun', 'Akun', 'users'], ['kelas', 'Kelas', 'school'], ['akademik', 'Akademik', 'calendar'], ['kenaikan', 'Kenaikan Kelas', 'grad'], ['penilaian', 'Penilaian', 'chart'], ['program', 'Sertifikat', 'award'], ['forum', 'Forum', 'forum'], ['laporan', 'Laporan', 'log'], ['log', 'Log', 'log'], ['pengaturan', 'Pengaturan', 'settings'], ['profil', 'Profil', 'user']],
+  guru:  [['beranda', 'Beranda', 'home'], ['presensi', 'Presensi', 'check'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['nilai', 'Nilai', 'chart'], ['ujian', 'Ujian', 'exam'], ['soal', 'Bank Soal', 'bank'], ['laporan', 'Laporan', 'log'], ['forum', 'Forum', 'forum'], ['profil', 'Profil', 'user']],
   siswa: [['beranda', 'Beranda', 'home'], ['materi', 'Materi', 'book'], ['tugas', 'Tugas', 'task'], ['ujian', 'Ujian', 'exam'], ['nilai', 'Nilai', 'star'], ['kehadiran', 'Kehadiran', 'check'], ['forum', 'Forum', 'forum'], ['sertifikat', 'Sertifikat', 'award'], ['profil', 'Profil', 'user']]
 };
 
@@ -54,11 +54,12 @@ window.Perf = Perf;
 const READ_CACHE = { admDashboard: 45e3, admListAkun: 45e3, admListKelas: 45e3, admGetKelas: 45e3, admListAkademik: 45e3,
   gruMapelSaya: 45e3, gruGetMapel: 45e3, gruListSoal: 45e3, gruListTugas: 45e3, gruListUjian: 30e3,
   sisMapelSaya: 45e3, sisGetMapel: 45e3, sisTugasSaya: 30e3, sisGetTugas: 30e3, sisListUjian: 15e3,
+  admLaporanRingkasan: 30e3, admLaporanKelas: 30e3, gruKelasWali: 60e3, gruLaporanKelas: 30e3,
   listForum: 15e3, admListProgram: 45e3, admListSertifikat: 45e3, gruProgramManual: 45e3, sisSertifikat: 60e3,
   admGetPenilaian: 30e3, gruRekap: 30e3, gruPraktik: 30e3, sisNilaiSaya: 30e3,
   gruPresensiRekap: 30e3, gruRemedialList: 30e3, sisKehadiran: 30e3, sisRemedial: 30e3 };
 // Aksi yang bukan penulisan data (tidak membuang cache): baca tanpa cache, unduh, simpan otomatis ujian, dll.
-const NON_WRITE = /^(me|getFile|batch|logout|getSettings|admListLog|admSearchSiswaBebas|gruPengumpulan|gruHasilUjian|gruAttempt|sisHasilUjian|sisSimpanJawaban|gruPresensiSesi|getForum|admEvaluasiProgram)$/;
+const NON_WRITE = /^(me|getFile|batch|logout|getSettings|admListLog|admSearchSiswaBebas|gruPengumpulan|gruHasilUjian|gruAttempt|sisHasilUjian|sisSimpanJawaban|gruPresensiSesi|getForum|admEvaluasiProgram|admKenaikanInfo|admKenaikanDaftar|admKenaikanPeriksa|admKenaikanRiwayat|admListCadangan|admUkuranData)$/;
 const RC_MAX_AGE = 10 * 60 * 1000;                              // cache lebih tua dari ini tidak dipakai lagi
 const rcMem = new Map(), rcBusy = new Set();
 
@@ -395,6 +396,7 @@ async function pagePengaturan() {
     '<button class="btn btn-danger btn-sm" id="logo-del" type="button"' + (s.logo ? '' : ' hidden') + '>Hapus logo</button></div></div>' +
     '<input type="file" id="logo-file" accept="image/png,image/jpeg" hidden>' +
     '<p id="logo-err" class="form-error" hidden></p></div></div>';
+  if (window.extraPengaturan) window.extraPengaturan(c);                // panel tambahan (cadangan data) dari laporan.js
 
   $('#set-form').addEventListener('submit', async ev => {
     ev.preventDefault();

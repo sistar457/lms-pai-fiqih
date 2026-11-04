@@ -301,3 +301,7 @@ details { margin: 8px 0; } summary { cursor: pointer; font-weight: 600; }
   .cert-print { position: fixed; inset: 0; width: 100%; background: #fff; }
   .modal-ov { background: none !important; }
 }
+
+/* ============ FASE 5C: LAPORAN & KENAIKAN KELAS ============ */
+.tbl .rendah, .tbl td.rendah { color: var(--err-ink); font-weight: 700; }
+@media (min-width: 1024px) { .sidebar { overflow-y: auto; } }
