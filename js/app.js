@@ -211,7 +211,8 @@ function setBusy(btn, busy, label) {
   if (busy) { btn.dataset.label = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' + (label || 'Memproses…'); }
   else { btn.disabled = false; btn.innerHTML = btn.dataset.label || btn.innerHTML; }
 }
-function svg(name) { return '<svg class="ic" viewBox="0 0 24 24">' + ICONS[name] + '</svg>'; }
+ICONS.dot = '<circle cx="12" cy="12" r="3"/>';                                  // ikon cadangan bila ikon yang diminta belum termuat
+function svg(name) { return '<svg class="ic" viewBox="0 0 24 24">' + (ICONS[name] || ICONS.dot) + '</svg>'; }
 
 // ============================================================
 // LOGIN & SESI
@@ -284,6 +285,16 @@ function bukaLainnya() {
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-more]')) bukaLainnya(); });
 
+// Pesan jelas (bukan layar kosong) bila halaman gagal dimuat atau galat. Hanya menulis ke elemen halaman itu sendiri.
+function tampilGalatHalaman(e, el) {
+  if (!el || !document.body.contains(el)) return;                                // pengguna sudah pindah halaman
+  const gagal = window.__muatGagal || [];
+  el.innerHTML = '<div class="card"><h2>Halaman tidak dapat ditampilkan</h2><p class="hint">' + (e ? 'Terjadi galat: ' + esc(e.message || e) : 'Berkas program untuk halaman ini belum termuat.') + '</p>' +
+    (gagal.length ? '<p class="form-error">' + gagal.map(esc).join('<br>') + '</p>' : '') +
+    '<p class="hint">Muat ulang dengan <strong>Ctrl+Shift+R</strong>. Jika berulang, pastikan semua berkas di folder <code>js</code> sudah terunggah ke GitHub dan Vercel sudah selesai memperbarui.</p><button class="btn btn-secondary btn-sm" type="button">Muat ulang</button></div>';
+  const b = $('button', el); if (b) b.addEventListener('click', () => location.reload());
+}
+
 function route() {
   if (!me) return;
   const parts = (location.hash.replace('#/', '') || 'beranda').split('?')[0].split('/');
@@ -300,7 +311,12 @@ function route() {
   //  2) respons lambat dari halaman sebelumnya hanya menulis ke elemen lama yang sudah terlepas (tidak menimpa halaman baru)
   const lama = $('#content'), baru = lama.cloneNode(false);
   lama.replaceWith(baru);
-  pages[id](param);
+  const fn = pages[id];
+  if (typeof fn !== 'function') tampilGalatHalaman(null, baru);                  // berkas halaman belum termuat
+  else {
+    try { const r = fn(param); if (r && typeof r.catch === 'function') r.catch(e => tampilGalatHalaman(e, baru)); }
+    catch (e) { tampilGalatHalaman(e, baru); }
+  }
   $('#content').focus({ preventScroll: true });
   window.scrollTo(0, 0);
 }

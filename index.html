@@ -14,6 +14,7 @@
 <script>
   // Diagnosa: tampilkan pesan jelas jika berkas gagal dimuat atau ada galat JavaScript
   function bootFail(msg) {
+    (window.__muatGagal = window.__muatGagal || []).push(msg);          // juga ditampilkan di halaman bila berkas gagal dimuat
     var b = document.getElementById('boot-msg');
     if (b) { b.style.display = 'block'; b.textContent = msg; }
   }
