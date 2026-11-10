@@ -52,7 +52,7 @@ async function guruMateriDetail(mkId) {
         '<div class="list" style="margin-top:8px">' + (b.materi.length ? b.materi.map(m =>
           '<div class="list-item"><div class="li-main"><strong>' + esc(m.judul) + '</strong><span class="li-meta">' + esc(JENIS_LABEL[m.jenis]) + (m.lampiran.length ? ' · ' + m.lampiran.length + ' berkas' : '') + '</span></div>' +
           '<div class="li-actions">' + chip(m.status === 'terbit' ? 'Terbit' : 'Draf', m.status === 'terbit' ? 'ok' : 'warn') +
-          '<button class="btn btn-secondary btn-sm" data-mat-edit="' + esc(m.id) + '">Ubah</button>' +
+          '<button class="btn btn-secondary btn-sm" data-mat-view="' + esc(m.id) + '">Lihat</button>' +           '<button class="btn btn-secondary btn-sm" data-mat-edit="' + esc(m.id) + '">Ubah</button>' +
           '<button class="btn btn-danger btn-sm" data-arsip="materi" data-id="' + esc(m.id) + '">Arsip</button></div></div>').join('') : '<div class="empty">Belum ada materi pada bab ini.</div>') + '</div>' +
         '<div style="margin-top:12px"><button class="btn btn-secondary btn-sm" data-mat-add="' + esc(b.id) + '">+ Materi</button></div></div>').join('') + '</div>'
         : '<div class="empty">Belum ada bab. Klik “+ Bab” untuk memulai.</div>');
@@ -62,6 +62,7 @@ async function guruMateriDetail(mkId) {
       const t = e.target.closest('button'); if (!t) return;
       if (t.dataset.babEdit) return formBab(mkId, bab.find(x => x.id === t.dataset.babEdit), load);
       if (t.dataset.matAdd) return formMateri(t.dataset.matAdd, null, load);
+      if (t.dataset.matView) { const mv = bab.flatMap(b => b.materi).find(x => x.id === t.dataset.matView); return bukaMateri(mv); }
       if (t.dataset.matEdit) { const m = bab.flatMap(b => b.materi.map(x => Object.assign({ bab_id: b.id }, x))).find(x => x.id === t.dataset.matEdit); return formMateri(m.bab_id, m, load); }
       if (t.dataset.arsip) {
         if (!confirm('Pindahkan ke arsip? Siswa tidak akan melihatnya lagi.')) return;
@@ -98,7 +99,7 @@ function formMateri(babId, m, done) {
     '<div id="mt-lamp">' + (cur.lampiran || []).map(l => '<div class="list-item" data-l="' + esc(l.id) + '"><div class="li-main"><strong>' + esc(l.nama) + '</strong><span class="li-meta">' + fmtSize(l.ukuran) + '</span></div><div class="li-actions"><button type="button" class="btn btn-danger btn-sm" data-del-l="' + esc(l.id) + '">Hapus</button></div></div>').join('') + '</div></div>' +
     sel('Status', 'mt-st', opts([['draft', 'Draf (belum terlihat siswa)'], ['terbit', 'Terbit']], cur.status)),
     onOpen: mm => {
-      const toggle = () => { const j = val('mt-jenis'); $('#mt-teks', mm.el).hidden = j !== 'teks'; $('#mt-url', mm.el).hidden = !(j === 'video' || j === 'tautan'); $('#mt-file', mm.el).hidden = !(j === 'pdf' || j === 'modul'); };
+      const toggle = () => { const j = val('mt-jenis'); $('#mt-teks', mm.el).hidden = j !== 'teks'; $('#mt-url', mm.el).hidden = !(j === 'video' || j === 'tautan'); $('#mt-file', mm.el).hidden = !(j === 'pdf' || j === 'modul' || j === 'gambar'); };
       $('#mt-jenis', mm.el).addEventListener('change', toggle); toggle();
       $('#mt-lamp', mm.el).addEventListener('click', async e => {
         const b = e.target.closest('[data-del-l]'); if (!b || !confirm('Hapus berkas ini?')) return;
@@ -109,7 +110,7 @@ function formMateri(babId, m, done) {
     },
     onSubmit: async () => {
       const j = val('mt-jenis');
-      const file = (j === 'pdf' || j === 'modul') ? await fileToPayload($('#mt-berkas').files[0]) : null;
+      const file = (j === 'pdf' || j === 'modul' || j === 'gambar') ? await fileToPayload($('#mt-berkas').files[0]) : null;
       const r = await api('gruSaveMateri', { id: m ? m.id : '', bab_id: babId, judul: val('mt-judul'), jenis: j, status: val('mt-st'),
         isi: j === 'teks' ? val('mt-isi') : val('mt-ket'), url: val('mt-link'), file });
       if (!r.success) return r.message; toast('Materi disimpan.'); done();
@@ -192,12 +193,15 @@ async function guruPengumpulan(tugasId) {
     c.onclick = e => {
       const b = e.target.closest('[data-nilai]'); if (!b) return;
       const x = rows.find(y => y.siswa_id === b.dataset.nilai);
-      modal({ title: 'Jawaban ' + x.nama, body:
-        (x.terlambat ? '<p class="form-error" style="background:#FFFBEB;color:#92400E;border-color:#FDE68A">Dikumpulkan setelah tenggat.</p>' : '') +
-        (x.jawaban_teks ? '<div class="card" style="box-shadow:none;margin-bottom:12px"><h2>Jawaban teks</h2><p dir="auto" style="white-space:pre-wrap">' + esc(x.jawaban_teks) + '</p></div>' : '') +
-        (x.url ? '<p>' + safeLink(x.url) + '</p>' : '') + (x.file ? '<p>' + fileBtn(x.file) + '</p>' : '') +
-        fld('Nilai (0–100)', 'nl-nilai', x.nilai, 'type="number" min="0" max="100" step="0.5" inputmode="decimal"') +
-        '<label class="field"><span class="field-label">Umpan balik untuk siswa</span><textarea id="nl-fb" rows="4" maxlength="1000">' + esc(x.umpan_balik) + '</textarea></label>',
+      const emb = x.url ? embedDari(x.url) : null;
+      modal({ title: 'Jawaban ' + x.nama,
+        body: '<div class="split"><div>' +
+          (x.terlambat ? '<p class="form-error" style="background:#FFFBEB;color:#92400E;border-color:#FDE68A">Dikumpulkan setelah tenggat.</p>' : '') +
+          (x.jawaban_teks ? '<div class="card" style="box-shadow:none;margin-bottom:12px"><h2>Jawaban teks</h2><p dir="auto" style="white-space:pre-wrap">' + esc(x.jawaban_teks) + '</p></div>' : '') +
+          (x.url ? (emb ? iframeHtml(emb) : '') + '<p>' + safeLink(x.url) + '</p>' : '') + (x.file ? '<p>' + fileBtn(x.file) + '</p><div class="pv-host" id="gr-prev"></div>' : '') +
+          '</div><div>' + fld('Nilai (0–100)', 'nl-nilai', x.nilai, 'type="number" min="0" max="100" step="0.5" inputmode="decimal"') +
+          '<label class="field"><span class="field-label">Umpan balik untuk siswa</span><textarea id="nl-fb" rows="4" maxlength="1000">' + esc(x.umpan_balik) + '</textarea></label></div></div>',
+        onOpen: mm => { lebarkan(mm); if (x.file && bisaPratinjau(x.file.nama)) renderBerkas($('#gr-prev', mm.el), x.file); },
         submit: 'Simpan nilai',
         onSubmit: async () => { const res = await api('gruNilai', { pengumpulan_id: x.pengumpulan_id, nilai: val('nl-nilai'), umpan_balik: val('nl-fb') }); if (!res.success) return res.message; toast('Nilai disimpan.'); load(); } });
     };

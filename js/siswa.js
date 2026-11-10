@@ -54,10 +54,7 @@ async function siswaMateri(param) {
   c.onclick = e => {
     const b = e.target.closest('[data-buka]'); if (!b) return;
     const m = bab.flatMap(x => x.materi).find(y => y.id === b.dataset.buka);
-    const body = m.jenis === 'teks' ? '<div class="materi-teks">' + renderTeks(m.isi) + '</div>'
-      : (m.jenis === 'video' || m.jenis === 'tautan') ? (m.isi ? '<p dir="auto" style="white-space:pre-wrap">' + esc(m.isi) + '</p>' : '') + '<p>' + safeLink(m.url) + '</p>'
-      : (m.isi ? '<p>' + esc(m.isi) + '</p>' : '') + (m.lampiran.length ? lampiranHtml(m.lampiran) : '<div class="empty">Berkas belum tersedia.</div>');
-    modal({ title: m.judul, body: body, submit: '', cancel: 'Tutup' });
+    bukaMateri(m);                                   // pembaca materi: video, gambar, PDF tampil langsung (pratinjau.js)
   };
 }
 

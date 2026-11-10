@@ -305,3 +305,24 @@ details { margin: 8px 0; } summary { cursor: pointer; font-weight: 600; }
 /* ============ FASE 5C: LAPORAN & KENAIKAN KELAS ============ */
 .tbl .rendah, .tbl td.rendah { color: var(--err-ink); font-weight: 700; }
 @media (min-width: 1024px) { .sidebar { overflow-y: auto; } }
+
+/* ============ PRATINJAU LANGSUNG (video, PDF, gambar, audio) ============ */
+.modal-wide { max-width: min(1040px, 96vw); }
+.pv-video { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 14px; overflow: hidden; }
+.pv-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.pv-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-bottom: 8px; }
+.pv-pages { max-height: 70vh; overflow: auto; background: #E5E7EB; border-radius: 12px; padding: 8px; text-align: center; }
+.pv-pages canvas { background: #fff; box-shadow: var(--sh1); max-width: none; }
+.pv-frame { width: 100%; height: 70vh; border: 0; border-radius: 12px; background: #fff; }
+.pv-img { max-height: 70vh; overflow: auto; text-align: center; background: var(--muted-bg); border-radius: 12px; }
+.pv-img img { max-width: 100%; height: auto; cursor: zoom-in; }
+.pv-img img.zoom { max-width: none; width: 200%; cursor: zoom-out; }
+.pv-item { margin: 14px 0; }
+.pv-item + .pv-item { border-top: 1px solid var(--border); padding-top: 14px; }
+.pv-host { margin-top: 8px; }
+.file-list { display: grid; gap: 8px; }
+.file-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 8px 2px 0; }
+.file-name { font-weight: 600; overflow-wrap: anywhere; }
+.split { display: grid; gap: 16px; }
+@media (min-width: 900px) { .split { grid-template-columns: 1.4fr 1fr; align-items: start; } }
+audio { width: 100%; }

@@ -3,7 +3,7 @@
 // Memakai $, esc, api, toast, chip, SPIN, errBox dari app.js / admin.js
 // ============================================================
 
-const JENIS_LABEL = { teks: 'Teks', pdf: 'PDF', modul: 'Modul', video: 'Video', tautan: 'Tautan' };
+const JENIS_LABEL = { teks: 'Teks', pdf: 'PDF', gambar: 'Gambar', modul: 'Modul', video: 'Video', tautan: 'Tautan' };
 const JAWAB_LABEL = { teks: 'Teks', berkas: 'Berkas', tautan: 'Tautan', kombinasi: 'Teks, berkas, atau tautan' };
 const FILE_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'docx', 'pptx', 'mp3', 'm4a'];
 const FILE_ACCEPT = FILE_EXT.map(e => '.' + e).join(',');
@@ -51,8 +51,13 @@ document.addEventListener('click', e => {
   if (b) downloadLampiran(b.dataset.file, b.dataset.nama, b);
 });
 
-const fileBtn = l => '<button type="button" class="btn btn-secondary btn-sm" data-file="' + esc(l.id) + '" data-nama="' + esc(l.nama) + '">⬇ ' + esc(l.nama) + ' <small>(' + fmtSize(l.ukuran) + ')</small></button>';
-const lampiranHtml = list => (list && list.length ? '<div class="row-actions">' + list.map(fileBtn).join('') + '</div>' : '');
+// Berkas yang dapat dipratinjau langsung di halaman (selain itu hanya tombol Unduh)
+const BISA_PRATINJAU = ['pdf', 'jpg', 'jpeg', 'png', 'mp3', 'm4a'];
+const bisaPratinjau = nama => BISA_PRATINJAU.indexOf((String(nama || '').split('.').pop() || '').toLowerCase()) >= 0;
+const fileBtn = l => '<span class="file-row"><span class="file-name" dir="auto">' + esc(l.nama) + ' <small>(' + fmtSize(l.ukuran) + ')</small></span>' +
+  (bisaPratinjau(l.nama) ? '<button type="button" class="btn btn-primary btn-sm" data-prev="' + esc(l.id) + '" data-nama="' + esc(l.nama) + '" data-ukuran="' + esc(l.ukuran) + '">👁 Pratinjau</button>' : '') +
+  '<button type="button" class="btn btn-secondary btn-sm" data-file="' + esc(l.id) + '" data-nama="' + esc(l.nama) + '">⬇ Unduh</button></span>';
+const lampiranHtml = list => (list && list.length ? '<div class="file-list">' + list.map(fileBtn).join('') + '</div>' : '');
 const safeLink = u => /^https?:\/\//i.test(u || '') ? '<a class="btn btn-secondary btn-sm" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">Buka tautan ↗</a>' : '';
 
 // Teks materi: paragraf dipisah baris kosong; paragraf berawalan ">" tampil sebagai kutipan ayat/hadits
