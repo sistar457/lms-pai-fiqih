@@ -134,13 +134,14 @@ async function guruTugas(param) {
       (items.length ? '<div class="card"><div class="list">' + items.map(t =>
         '<div class="list-item"><div class="li-main"><strong>' + esc(t.judul) + '</strong><span class="li-meta">' + esc(t.mapel) + ' · Kelas ' + esc(t.kelas) + ' · tenggat ' + esc(fmtTenggat(t.tenggat)) + '</span>' +
         '<span class="li-meta">' + t.terkumpul + '/' + t.total + ' terkumpul · ' + t.dinilai + ' dinilai</span></div>' +
-        '<div class="li-actions">' + stChip(t) + '<a class="btn btn-primary btn-sm" href="#/tugas/' + esc(t.id) + '">Periksa</a>' +
+        '<div class="li-actions">' + stChip(t) + '<button class="btn btn-secondary btn-sm" data-lihat="' + esc(t.id) + '">Lihat</button><a class="btn btn-primary btn-sm" href="#/tugas/' + esc(t.id) + '">Periksa</a>' +
         '<button class="btn btn-secondary btn-sm" data-edit="' + esc(t.id) + '">Ubah</button>' +
         '<button class="btn btn-danger btn-sm" data-arsip="' + esc(t.id) + '">Arsip</button></div></div>').join('') + '</div></div>'
         : '<div class="empty">Belum ada tugas.</div>');
     const add = $('#tg-add'); if (add) add.addEventListener('click', () => formTugas(null, aktif, load));
     c.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.lihat) return bukaTugas(items.find(x => x.id === b.dataset.lihat));
       if (b.dataset.edit) return formTugas(items.find(x => x.id === b.dataset.edit), mapel, load);
       if (b.dataset.arsip) {
         if (!confirm('Pindahkan tugas ini ke arsip?')) return;
@@ -150,6 +151,25 @@ async function guruTugas(param) {
     };
   }
   load();
+}
+
+// Pratinjau tugas: tampilan seperti yang dilihat siswa (instruksi, tenggat, jenis jawaban, lampiran dengan pratinjau & unduh)
+function bukaTugas(t) {
+  const lamp = t.lampiran || [], pertama = lamp.find(l => bisaPratinjau(l.nama));
+  modal({ title: t.judul, submit: '', cancel: 'Tutup', body:
+    '<div class="row-actions" style="margin-bottom:10px">' + chip({ draft: 'Draf', terbit: 'Terbit', ditutup: 'Ditutup' }[t.status] || t.status, t.status === 'terbit' ? 'ok' : t.status === 'ditutup' ? 'err' : 'warn') +
+    chip('Jawaban: ' + (JAWAB_LABEL[t.jenis_jawaban] || t.jenis_jawaban), 'soft') + chip(t.mapel + ' · Kelas ' + t.kelas, 'soft') + '</div>' +
+    (t.status === 'draft' ? '<p class="hint">Tugas ini masih <strong>draf</strong>, sehingga belum terlihat oleh siswa.</p>' : '') +
+    '<div class="list"><div class="list-item"><span>Tenggat</span><strong>' + esc(fmtTenggat(t.tenggat)) + '</strong></div>' +
+    '<div class="list-item"><span>Sudah terkumpul</span><strong>' + t.terkumpul + ' dari ' + t.total + ' siswa</strong></div><div class="list-item"><span>Sudah dinilai</span><strong>' + t.dinilai + '</strong></div></div>' +
+    '<div class="card" style="box-shadow:none;margin-top:12px"><h2>Instruksi</h2><p dir="auto" style="white-space:pre-wrap">' + esc(t.instruksi) + '</p></div>' +
+    (lamp.length ? '<div style="margin-top:12px"><h2>Lampiran dari guru</h2>' + lampiranHtml(lamp) + '<div class="pv-host" id="tg-prev"></div></div>' : '<p class="hint" style="margin-top:12px">Tidak ada lampiran.</p>') +
+    '<div class="row-actions" style="margin-top:14px"><a class="btn btn-primary btn-sm" href="#/tugas/' + esc(t.id) + '" data-tutup>Periksa jawaban siswa</a></div>',
+    onOpen: mm => {
+      lebarkan(mm);
+      mm.el.addEventListener('click', e => { if (e.target.closest('[data-tutup]')) mm.close(); });
+      if (pertama) renderBerkas($('#tg-prev', mm.el), pertama);                         // lampiran pertama langsung tampil
+    } });
 }
 
 function formTugas(t, mapelList, done) {
